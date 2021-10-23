@@ -1,8 +1,14 @@
-import Matter, { Body } from 'matter-js';
+import Matter, { Body, World } from 'matter-js';
 import foo from "./img/*.jpg"
 
-console.log(foo);
 
+let imgd = document.getElementById('player');
+imgd.src = foo.head
+imgd.style.zIndex = 3;
+
+document.querySelector('body').append(imgd) 
+
+function start() {
 // module aliases
 var Engine = Matter.Engine,
     Render = Matter.Render,
@@ -63,13 +69,7 @@ const img = new Image
 img.onload = () => {
   _img.src = foo
 }
-let imageDoc = document.createElement('img');
-imageDoc.id = 'player'
-imageDoc.src = foo.head
-
-document.querySelector('body').append(imageDoc)
-console.log(imageDoc)
-console.log(document.querySelector('body'))
+let imageDoc = document.getElementById('player');
 
 
 var playerOptions = {density: 0.004, render: {
@@ -82,9 +82,10 @@ elastic = Constraint.create({
   bodyB: player, 
   stiffness: 0.05
 });
+player.isPlayer = true;
 
 var lumber = Bodies.polygon(80, 80, 30, 30, {isStatic: false, render: {fillStyle: '#FFCC08'}});
-
+lumber.isLumber = true;
 
 var pyramid = Composites.pyramid(500, 300, 9, 10, 0, 0, function(x, y) {
   return Bodies.rectangle(x, y, 25, 40);
@@ -92,7 +93,7 @@ var pyramid = Composites.pyramid(500, 300, 9, 10, 0, 0, function(x, y) {
 
 
 // add all of the bodies to the world
-Composite.add(engine.world, [ pyramid, ground, ground2, player, elastic, elastic2, wallL, wallR, cieling, lumber]);
+Composite.add(engine.world, [ ground, ground2, player, elastic, elastic2, wallL, wallR, cieling, lumber]);
 
 
 var mouse = Mouse.create(render.canvas),
@@ -121,7 +122,7 @@ canvas.addEventListener('mousemove', e => {
  //var recalculated = {x: e.offsetX - center.x * 1, y: e.offsetY - center.y * 1}
  var normal = {x: normalize(e.offsetX, 800, 0), y: normalize(e.offsetY, 600, 0)}
  // 300, 400
- 
+ mousePos = normal
  engine.gravity = normal
 
 })
@@ -141,39 +142,64 @@ Matter.Events.on(mouseConstraint, 'mouseup', function (event) {
   document.getElementById('player').classList.remove('drag');
 });
 
+const enemies = []
+
+const addEnemies = () => {
+  var enemy = Bodies.polygon( Math.random() * (700 - 100) + 100, Math.random() * (500 - 100) + 100, 3, 20, {isStatic: true,render: {fillStyle: 'red'}});
+  enemy.collisionFilter.category = 2;
+  enemies.push(enemy)
+  console.log(enemy)
+  Composite.remove(world, enemies);
+  Composite.add(world, enemies);
+}
 
 var score = 0
+var minScore = 10;
 
-Events.on(engine, 'collisionEnd', function() {
+Events.on(engine, 'collisionStart', function() {
   engine.pairs.list.filter(obj => {
-    if (obj.bodyA.id === 7) {
+    if (obj.bodyA === player) {
       if (obj.bodyB === lumber) {
         Matter.Composite.remove(world, lumber)
         var prevPos = lumber.position
         
-        if (document.getElementById('goal') == undefined) {
+        //if (document.getElementById('goal') == undefined) {
           let goal = document.createElement('div');
           goal.id = 'goal'
           document.body.append(goal);
 
           goal.style.transform = "translate(" + (prevPos.x - 30) + "px, " + (prevPos.y - 30) + "px)";
-        }
+       // }
 
         window.setTimeout(() => {
           goal.remove();
         }, 700)
 
         lumber = Bodies.polygon( Math.random() * (700 - 100) + 100, Math.random() * (500 - 100) + 100, 30, 30, {isStatic: true, render: {fillStyle: '#FFCC08'}});
-    
        
         Matter.Composite.add(world, lumber)
         console.log(lumber)
         score = score + 1;
         document.getElementById('score').innerText = score;
+
+        if (score > minScore) {
+          minScore += 10;
+          addEnemies()
+        }
        
+      }
+      console.log(obj.bodyB);
+      if (obj.bodyB.collisionFilter.category === 2) {
+        console.log('lose');
+        Matter.Render.stop(render);
+        Matter.Runner.stop(runner);
+        var gameOver = document.getElementById('gameover');
+        gameOver.classList.add('over');
+
       }
     }
   })
+
   if (player.speed < .2 && Matter.Composite.get(world, 8, 'constraint') === null) {
     // console.log(elastic)
     // console.log(player)
@@ -208,8 +234,7 @@ imageDoc.style.transform = "translate(" + (pos.x - 30) + "px, " + (pos.y - 30) +
     let angleCoin = lumber.angle;
     let degreesCoin = angleCoin * (180 / Math.PI);
 
-  coin.style.transform = "translate(" + (posCoin.x + 30) + "px, " + (posCoin.y + 3) + "px) rotate(" + degreesCoin + "deg)";
-
+  coin.style.transform = "translate(" + (posCoin.x - 30) + "px, " + (posCoin.y + 10) + "px) rotate(" + degreesCoin + "deg)";
 });
 
 
@@ -223,12 +248,26 @@ imageDoc.style.transform = "translate(" + (pos.x - 30) + "px, " + (pos.y - 30) +
     max: {x: 800, y: 600}
   })
 
-  return {
+    return {
     engine: engine,
     runner: runner,
     render: render.canvas,
     stop: function() {
       Matter.Render.stop(render);
       Matter.Runner.stop(runner);
+      //document.body.removeChild(document.getElementById("player"));
+      //document.getElementById('lumber').remove();
     }
   }
+}
+
+
+  start();
+  var gameOverScreen = document.getElementById('gameover');
+
+  gameOverScreen.addEventListener('click', event => {
+   start().stop();
+   document.getElementById("score").innerText = 0;
+   start();
+   gameOverScreen.classList.remove('over');
+  })
