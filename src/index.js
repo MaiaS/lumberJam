@@ -1,12 +1,27 @@
 import Matter, { Body, World } from 'matter-js';
 import foo from "./img/*.jpg"
 
+const phoneAccelerometer = false
 
 let imgd = document.getElementById('player');
 imgd.src = foo.head
 imgd.style.zIndex = 3;
 
-document.querySelector('body').append(imgd) 
+document.querySelector('body').append(imgd)
+
+function startAccelerometer() {
+  try {
+    DeviceMotionEvent.requestPermission().then(res => {
+      if (res == 'granted') {
+        phoneAccelerometer = true;
+      } else console.log(res);
+    });
+    
+   
+  } catch(err) {
+    console.log(err);
+  }
+}
 
 function start() {
 // module aliases
@@ -117,19 +132,32 @@ const normalize = (num, min, max) => {
   return ((num - min) / (max - min)) * (1 - -1) + -1
 }
 
+var phaseGravity = false;
 var mousePos = {x: 0, y: 0}
-canvas.addEventListener('mousemove', e => {
- //var recalculated = {x: e.offsetX - center.x * 1, y: e.offsetY - center.y * 1}
- var normal = {x: normalize(e.offsetX, 800, 0), y: normalize(e.offsetY, 600, 0)}
- // 300, 400
- mousePos = normal
- engine.gravity = normal
+
+canvas.addEventListener('deviceorientation', e => {
+  var phoneRotation = e.alpha,
+  frontBack = e.beta,
+  leftRight = e.gamma;
+
+  console.log(phoneRotation, frontBack, leftRight)
 
 })
+canvas.addEventListener('mousemove', e => {
+  if (phaseGravity) {
+  //var recalculated = {x: e.offsetX - center.x * 1, y: e.offsetY - center.y * 1}
+  var normal = {x: normalize(e.offsetX, 800, 0), y: normalize(e.offsetY, 600, 0)}
+  // 300, 400
+  mousePos = normal
+  engine.gravity = normal
+  }
+
+})
+
 Matter.Events.on(mouseConstraint, 'mousedown', function (event) {
   //For Matter.Query.point pass "array of bodies" and "mouse position"
   var found = Matter.Query.point(world.bodies, event.mouse.position);
-  if (found.length > 0 && found[0].id === 7) {
+  if (found.length > 0 && found[0] === player) {
     document.getElementById('player').classList.add('drag');
   }
  //Your custom code here
@@ -200,14 +228,14 @@ Events.on(engine, 'collisionStart', function() {
     }
   })
 
-  if (player.speed < .2 && Matter.Composite.get(world, 8, 'constraint') === null) {
-    // console.log(elastic)
-    // console.log(player)
+  // if (player.speed < .2 && Matter.Composite.get(world, 8, 'constraint') === null) {
+  //   // console.log(elastic)
+  //   // console.log(player)
     
-   elastic.pointA = {x: player.position.x, y: player.position.y}
-   elastic.bodyB = player;
-   Matter.Composite.add(world, elastic, true);
-  }
+  //  elastic.pointA = {x: player.position.x, y: player.position.y}
+  //  elastic.bodyB = player;
+  //  Matter.Composite.add(world, elastic, true);
+  // }
 })
 
 lumber.ignoreGravity = true;
@@ -220,6 +248,7 @@ Events.on(engine, 'afterUpdate', function() {
       //player = Bodies.polygon(170, 450, 7, 20, playerOptions);
       
       Matter.Composite.remove(world, elastic, true);
+      phaseGravity = true;
     }
 
     let pos = player.position;
@@ -261,13 +290,13 @@ imageDoc.style.transform = "translate(" + (pos.x - 30) + "px, " + (pos.y - 30) +
   }
 }
 
-
   start();
   var gameOverScreen = document.getElementById('gameover');
 
   gameOverScreen.addEventListener('click', event => {
    start().stop();
    document.getElementById("score").innerText = 0;
+   startAccelerometer();
    start();
-   gameOverScreen.classList.remove('over');
+   gameOverScreen.classList.remove('over', 'start');
   })
